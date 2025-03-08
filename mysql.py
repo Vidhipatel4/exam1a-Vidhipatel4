@@ -33,3 +33,4 @@ def execute_read_query(connection, query):
         return result
     except Error as e:
         print(f"The error {e} ocurred.")
+ DB_CONFIG

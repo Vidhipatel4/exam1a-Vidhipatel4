@@ -38,4 +38,4 @@ def insert_test_data():
 if __name__ == "__main__":
     setup_museum_table()
     insert_test_data()
-    print("Museum table setup complete with test data.")
+    print("Museum table setup complete with test data.")f
