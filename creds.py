@@ -1,41 +1,52 @@
-def create_db_connection():
-    return mysql.connector.connect(DB_CONFIG)
+from flask import Flask, request, jsonify
+import mysql.connector
+from creds import DB_CONFIG
 
-def setup_museum_table():
-    conn = create_db_connection()
+app = Flask(__name__)
+
+def get_db_connection():
+    return mysql.connector.connect(**DB_CONFIG)
+
+@app.route('/api/museum/add', methods=['POST'])
+def add_art_piece():
+    data = request.json
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS museum (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            artist VARCHAR(255) NOT NULL,
-            year INT NOT NULL,
-            description VARCHAR(255),
-            owner VARCHAR(255),
-            value DECIMAL(10,2)
-        )
-    """)
+    sql = """
+        INSERT INTO museum (name, artist, year, description)
+        VALUES (%s, %s, %s, %s)
+    """
+    cursor.execute(sql, (data['name'], data['artist'], data['year'], data.get('description', '')))
     conn.commit()
     cursor.close()
     conn.close()
+    return jsonify({"message": "Art piece added successfully"}), 201
 
-def insert_test_data():
-    conn = create_db_connection()
+@app.route('/api/museum/sell', methods=['PUT'])
+def sell_art_piece():
+    data = request.json
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.executemany("""
-        INSERT INTO museum (name, artist, year, description) VALUES (%s, %s, %s, %s)
-    """, [
-        ("Starry Night", "Vincent van Gogh", 1889, "A masterpiece of post-impressionism."),
-        ("The Persistence of Memory", "Salvador Dalí", 1931, "Surrealist painting with melting clocks."),
-        ("Mona Lisa", "Leonardo da Vinci", 1503, "The world-famous portrait."),
-        ("The Scream", "Edvard Munch", 1893, "Expressionist depiction of anxiety."),
-        ("Girl with a Pearl Earring", "Johannes Vermeer", 1665, "Also known as the Dutch Mona Lisa.")
-    ])
+    sql = """
+        UPDATE museum
+        SET owner = %s, value = %s
+        WHERE id = %s AND owner IS NULL
+    """
+    cursor.execute(sql, (data['owner'], data['value'], data['id']))
     conn.commit()
     cursor.close()
     conn.close()
-
-if __name__ == "__main__":
-    setup_museum_table()
-    insert_test_data()
-    print("Museum table setup complete with test data.")f
+    return jsonify({"message": "Art piece sold successfully"})
+@app.route('/api/museum/inventory', methods=['GET'])
+def get_inventory():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM museum")
+    items = cursor.fetchall()
+    cursor.execute("SELECT SUM(value) AS totalvalue FROM museum WHERE value IS NOT NULL")
+    total_value = cursor.fetchone()["totalvalue"]
+    cursor.close()
+    conn.close()
+    return jsonify({"inventory": items, "totalvalue": total_value})
+if __name__ == '__main__':
+    app.run(debug=True)
